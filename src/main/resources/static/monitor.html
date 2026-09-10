@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>监控大屏 - 智能安防远程监控与告警平台</title>
+    <link rel="icon" href="assets/security-logo.png" type="image/png">
+    <script src="js/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="css/app.css">
+    <script src="js/pending-alarm-notice.js" defer></script>
+</head>
+<body>
+<div id="app" class="app-shell">
+    <header class="app-header">
+        <a class="brand" href="index.html" aria-label="返回系统首页">
+            <img class="brand-logo" src="assets/security-logo.png" alt="智能安防平台 Logo">
+            <span class="brand-title">智能安防远程监控与告警平台</span>
+        </a>
+    </header>
+
+    <aside class="app-sidebar">
+        <p class="nav-caption">功能菜单</p>
+        <nav aria-label="系统功能">
+            <ul class="nav-list">
+                <li>
+                    <a class="nav-link active" href="monitor.html" aria-current="page">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 8h4v4H7zM14 8h3M14 12h3"/></svg>
+                        <span class="nav-label">监控大屏</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="device.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2M7 9h6"/></svg>
+                        <span class="nav-label">设备信息</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="ai.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>
+                        <span class="nav-label">AI识别记录</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="alarm.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                        <span class="nav-label">实时告警中心</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="alarm-history.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg>
+                        <span class="nav-label">告警处理记录</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="app-content command-content">
+        <div class="page-container command-page">
+            <div class="page-heading command-heading">
+                <h1 class="page-title">智能安防监控大屏</h1>
+                <button class="command-refresh" type="button" @click="loadDashboard" :disabled="loading">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2 5M20 4v7h-7"/></svg>
+                    {{ loading ? '数据加载中' : '刷新数据' }}
+                </button>
+            </div>
+
+            <section class="command-stat-grid" aria-label="实时统计">
+                <article class="command-stat-card">
+                    <p>在线设备</p>
+                    <strong>{{ onlineDevices }} <span>/ {{ totalDevices }}</span></strong>
+                </article>
+                <article class="command-stat-card">
+                    <p>实时告警</p>
+                    <strong>{{ realtimeAlarms }}</strong>
+                </article>
+                <article class="command-stat-card">
+                    <p>待处置</p>
+                    <strong>{{ pendingAlarms }}</strong>
+                </article>
+                <article class="command-stat-card">
+                    <p>AI识别事件</p>
+                    <strong>{{ aiEvents }}</strong>
+                </article>
+            </section>
+
+            <section class="command-main-grid">
+                <article class="surface command-panel campus-panel" aria-label="园区摄像头虚拟地图">
+                    <div class="command-panel-header">
+                        <div>
+                            <h2>园区摄像头虚拟地图</h2>
+                            <p>按实际区域语义展示摄像头位置</p>
+                        </div>
+                        <span>{{ cameraNodes.length }} 个摄像头点位 · {{ cameraAreaCount }} 个区域</span>
+                    </div>
+
+                    <div v-if="loading" class="command-panel-state">正在加载设备分布…</div>
+                    <div v-else-if="errorMessage" class="command-panel-state command-panel-error">{{ errorMessage }}</div>
+                    <div v-else-if="cameraNodes.length === 0" class="command-panel-state">暂无摄像头点位数据</div>
+                    <div v-else class="virtual-campus-map">
+                        <div class="virtual-map-title">CAMPUS SECURITY MAP</div>
+                        <div class="map-compass" aria-label="地图方向"><b>N</b><i></i></div>
+
+                        <svg class="campus-plan" viewBox="0 0 1000 520" preserveAspectRatio="none" aria-hidden="true">
+                            <path class="map-road map-road-main" d="M35 318 C210 302 316 326 476 334 S760 333 970 316"/>
+                            <path class="map-road" d="M478 334 C492 248 506 160 516 28"/>
+                            <path class="map-road" d="M700 335 C718 390 738 452 770 507"/>
+                            <path class="map-path" d="M184 150 C274 212 352 246 478 334 S655 398 846 412"/>
+                            <path class="map-path" d="M116 430 C242 390 350 370 478 334"/>
+                            <circle class="map-roundabout" cx="478" cy="334" r="34"/>
+                        </svg>
+
+                        <div class="map-building map-teaching"><b>教学楼</b><span>Teaching Building</span></div>
+                        <div class="map-building map-lab"><b>实验楼</b><span>Laboratory</span></div>
+                        <div class="map-building map-library"><b>图书馆</b><span>Library</span></div>
+                        <div class="map-building map-dormitory"><b>宿舍区</b><span>Dormitory</span></div>
+                        <div class="map-building map-warehouse"><b>仓库区</b><span>Warehouse</span></div>
+                        <div class="map-zone map-playground"><b>操场</b><span>PLAYGROUND</span></div>
+                        <div class="map-zone map-plaza"><b>校园广场</b><span>CAMPUS PLAZA</span></div>
+                        <div class="map-zone map-parking"><b>停车场</b><span>PARKING</span></div>
+                        <div class="map-gate map-west-gate">西门</div>
+                        <div class="map-gate map-south-gate">南门</div>
+
+                        <button
+                            v-for="item in cameraNodes"
+                            :key="item.id"
+                            type="button"
+                            :class="['camera-map-point', item.status === '在线' ? 'camera-online' : 'camera-offline', item.labelSide, { selected: selectedCameraCode === item.code }]"
+                            :style="{ left: item.mapX + '%', top: item.mapY + '%' }"
+                            :aria-label="item.name + '，' + item.area + '，' + item.status"
+                            @click="selectedCameraCode = item.code"
+                        >
+                            <span class="camera-pin">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-2v8l-5-2M7 10h5"/></svg>
+                            </span>
+                            <span class="camera-point-label"><strong>{{ item.name }}</strong><small>{{ item.area }} · {{ item.code }}</small></span>
+                        </button>
+
+                        <aside v-if="selectedCamera" class="selected-camera-card">
+                            <button type="button" aria-label="关闭点位详情" @click="selectedCameraCode = ''">×</button>
+                            <span>当前点位</span>
+                            <strong>{{ selectedCamera.name }}</strong>
+                            <p>{{ selectedCamera.area }} · {{ selectedCamera.code }}</p>
+                            <div>
+                                <i :class="selectedCamera.status === '在线' ? 'node-online' : 'node-warning'"></i>
+                                {{ selectedCamera.status }}
+                                <time>{{ formatMediaTime(selectedCamera.uploadedTime) }}</time>
+                            </div>
+                            <a v-if="selectedCamera.mediaPath" :href="mediaUrl(selectedCamera.mediaPath)" target="_blank" rel="noopener">查看最新画面</a>
+                            <em v-else>该点位暂无上传画面</em>
+                        </aside>
+
+                        <div class="virtual-map-legend"><span><i class="legend-online"></i>在线</span><span><i class="legend-offline"></i>离线</span><span>点击点位查看详情</span></div>
+                    </div>
+                </article>
+
+                <article class="surface command-panel alarm-panel" aria-label="最新告警">
+                    <div class="command-panel-header">
+                        <h2>最新告警</h2>
+                        <a href="ai.html">查看全部</a>
+                    </div>
+                    <div class="command-table-wrap">
+                        <table class="command-table">
+                            <thead>
+                            <tr>
+                                <th>告警类型</th>
+                                <th>区域</th>
+                                <th>来源</th>
+                                <th>状态</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr v-if="loading">
+                                <td colspan="4" class="command-table-empty">正在加载最新告警…</td>
+                            </tr>
+                            <tr v-else-if="errorMessage">
+                                <td colspan="4" class="command-table-empty command-panel-error">告警数据加载失败</td>
+                            </tr>
+                            <tr v-else-if="recentAlarms.length === 0">
+                                <td colspan="4" class="command-table-empty">暂无告警记录</td>
+                            </tr>
+                            <tr v-else v-for="item in recentAlarms" :key="item.id">
+                                <td>{{ item.type }}</td>
+                                <td>{{ item.area }}</td>
+                                <td>{{ item.source }}</td>
+                                <td><span :class="['command-status', alarmStatusClass(item.status)]">{{ item.status }}</span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+
+            <section class="surface command-media-panel" aria-label="各设备最新监控画面">
+                <div class="command-panel-header">
+                    <div>
+                        <h2>各设备最新监控画面</h2>
+                        <p>按设备展示最近一次上传分析的图片或视频</p>
+                    </div>
+                    <span>{{ mediaReadyCount }} / {{ deviceMediaCards.length }} 台已有画面</span>
+                </div>
+                <div v-if="loading" class="device-media-state">正在加载设备媒体…</div>
+                <div v-else-if="deviceMediaCards.length === 0" class="device-media-state">暂无设备数据</div>
+                <div v-else class="device-media-grid">
+                    <article v-for="item in deviceMediaCards" :key="item.deviceCode" class="device-media-card">
+                        <header>
+                            <div>
+                                <strong>{{ item.deviceName }}</strong>
+                                <span>{{ item.area }} · {{ item.deviceCode }}</span>
+                            </div>
+                            <b :class="item.deviceStatus === '在线' ? 'media-online' : 'media-offline'">{{ item.deviceStatus }}</b>
+                        </header>
+                        <div class="device-media-preview">
+                            <img
+                                v-if="item.mediaType === 'image' && item.mediaPath"
+                                :src="mediaUrl(item.mediaPath)"
+                                :alt="item.deviceName + '最新上传图片'"
+                                loading="lazy"
+                            >
+                            <video
+                                v-else-if="item.mediaType === 'video' && item.mediaPath"
+                                :src="mediaUrl(item.mediaPath)"
+                                :poster="mediaUrl(item.previewPath)"
+                                controls
+                                muted
+                                preload="none"
+                                playsinline
+                            ></video>
+                            <div v-else class="device-media-empty">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2M7 9h6"/></svg>
+                                <span>暂无上传画面</span>
+                            </div>
+                            <span v-if="item.mediaType" class="device-media-type">{{ item.mediaType === 'video' ? '视频' : '图片' }}</span>
+                        </div>
+                        <footer>
+                            <span :title="item.originalName">{{ item.originalName || '等待上传' }}</span>
+                            <time>{{ formatMediaTime(item.uploadedTime) }}</time>
+                            <a v-if="item.mediaPath" :href="mediaUrl(item.mediaPath)" target="_blank" rel="noopener">查看原文件</a>
+                        </footer>
+                    </article>
+                </div>
+            </section>
+
+            <section :class="['system-status-bar', errorMessage ? 'system-status-error' : '']" aria-live="polite">
+                <span class="system-status-dot"></span>
+                <p>{{ systemStatus }}</p>
+                <time v-if="lastUpdated">更新于 {{ lastUpdated }}</time>
+            </section>
+        </div>
+    </main>
+</div>
+<script>
+    const { createApp, ref, computed, onMounted } = Vue
+
+    createApp({
+        setup() {
+            const devices = ref([])
+            const alarms = ref([])
+            const latestMedia = ref([])
+            const loading = ref(false)
+            const errorMessage = ref('')
+            const lastUpdated = ref('')
+            const selectedCameraCode = ref('')
+
+            const cameraPositionByArea = {
+                'A区西门': { x: 5, y: 56 },
+                'A区南门': { x: 36, y: 94 },
+                'B区仓库': { x: 91, y: 25 },
+                '教学楼南侧': { x: 43, y: 57 },
+                '校园道路': { x: 57, y: 77 },
+                '宿舍区': { x: 76, y: 23 },
+                '操场入口': { x: 18, y: 79 },
+                '图书馆门口': { x: 58, y: 38 },
+                '停车场': { x: 89, y: 76, labelSide: 'label-left' },
+                '仓库外侧': { x: 91, y: 43 },
+                '实验楼后侧': { x: 38, y: 25 },
+                '校园广场': { x: 63, y: 57 }
+            }
+
+            const totalDevices = computed(() => devices.value.length)
+            const onlineDevices = computed(() => devices.value.filter(item => item.status === '在线').length)
+            const realtimeAlarms = computed(() => alarms.value.length)
+            const pendingAlarms = computed(() => alarms.value.filter(item => item.status === '待处置').length)
+            const aiEvents = computed(() => alarms.value.filter(item => String(item.source || '').includes('AI')).length)
+            const recentAlarms = computed(() => [...alarms.value]
+                .sort((a, b) => {
+                    const timeDifference = new Date(b.eventTime || 0) - new Date(a.eventTime || 0)
+                    return timeDifference || Number(b.id || 0) - Number(a.id || 0)
+                })
+                .slice(0, 5))
+            const deviceNodes = computed(() => [...devices.value]
+                .sort((a, b) => String(a.area || '').localeCompare(String(b.area || ''), 'zh-CN')
+                    || String(a.code || '').localeCompare(String(b.code || ''))))
+            const areaCount = computed(() => new Set(devices.value.map(item => item.area || '未分区')).size)
+            const cameraNodes = computed(() => {
+                const mediaByCode = new Map(latestMedia.value.map(item => [item.deviceCode, item]))
+                return devices.value
+                    .filter(item => String(item.type || '').includes('摄像'))
+                    .map((item, index) => {
+                        const fallback = { x: 10 + (index % 6) * 15, y: 16 + Math.floor(index / 6) * 26 }
+                        const position = cameraPositionByArea[item.area] || fallback
+                        return {
+                            ...item,
+                            ...(mediaByCode.get(item.code) || {}),
+                            mapX: position.x,
+                            mapY: position.y,
+                            labelSide: position.labelSide
+                                || (position.x >= 80 ? 'label-left' : position.x <= 12 ? 'label-right' : 'label-center')
+                        }
+                    })
+            })
+            const cameraAreaCount = computed(() => new Set(cameraNodes.value.map(item => item.area || '未分区')).size)
+            const selectedCamera = computed(() => cameraNodes.value.find(item => item.code === selectedCameraCode.value) || null)
+            const deviceMediaCards = computed(() => {
+                const mediaByCode = new Map(latestMedia.value.map(item => [item.deviceCode, item]))
+                return deviceNodes.value.map(device => ({
+                    deviceId: device.id,
+                    deviceCode: device.code,
+                    deviceName: device.name,
+                    deviceType: device.type,
+                    area: device.area,
+                    deviceStatus: device.status,
+                    ...(mediaByCode.get(device.code) || {})
+                })).sort((a, b) => {
+                    const mediaDifference = Number(Boolean(b.mediaPath)) - Number(Boolean(a.mediaPath))
+                    if (mediaDifference) return mediaDifference
+                    const timeDifference = new Date(b.uploadedTime || 0) - new Date(a.uploadedTime || 0)
+                    return timeDifference || String(a.area || '').localeCompare(String(b.area || ''), 'zh-CN')
+                })
+            })
+            const mediaReadyCount = computed(() => deviceMediaCards.value.filter(item => item.mediaPath).length)
+            const systemStatus = computed(() => errorMessage.value
+                ? '系统数据接入异常，请检查后台服务和数据库连接。'
+                : '系统运行正常，设备与告警数据已实时接入，支持AI视觉识别与远程监控。')
+
+            function alarmStatusClass(status) {
+                if (status === '待处置') return 'command-status-pending'
+                if (status === '处置中') return 'command-status-processing'
+                return 'command-status-closed'
+            }
+
+            async function fetchList(url, label) {
+                const response = await fetch(url, {
+                    headers: { Accept: 'application/json' }
+                })
+
+                if (!response.ok) {
+                    throw new Error(`${label}接口返回 ${response.status}`)
+                }
+
+                const data = await response.json()
+                return Array.isArray(data) ? data : []
+            }
+
+            async function loadDashboard() {
+                loading.value = true
+                errorMessage.value = ''
+
+                try {
+                    const [deviceList, alarmList, mediaList] = await Promise.all([
+                        fetchList('/device/list', '设备'),
+                        fetchList('/alarm/list', '告警'),
+                        fetchList('/device/media/latest', '设备媒体')
+                    ])
+                    devices.value = deviceList
+                    alarms.value = alarmList
+                    latestMedia.value = mediaList
+                    if (selectedCameraCode.value && !deviceList.some(item => item.code === selectedCameraCode.value)) {
+                        selectedCameraCode.value = ''
+                    }
+                    lastUpdated.value = new Intl.DateTimeFormat('zh-CN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    }).format(new Date())
+                } catch (error) {
+                    devices.value = []
+                    alarms.value = []
+                    latestMedia.value = []
+                    lastUpdated.value = ''
+                    errorMessage.value = '数据加载失败，请检查后台服务和数据库连接'
+                    console.error('加载监控大屏失败：', error)
+                } finally {
+                    loading.value = false
+                }
+            }
+
+            function mediaUrl(path) {
+                if (!path) return ''
+                if (/^https?:\/\//i.test(path)) return path
+                const cleanPath = String(path).replace(/^\/+/, '')
+                const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+                return `${isLocal ? 'http://127.0.0.1:8000' : '/ai-model'}/${cleanPath}`
+            }
+
+            function formatMediaTime(value) {
+                if (!value) return '尚未上传'
+                const date = new Date(value)
+                if (Number.isNaN(date.getTime())) return value
+                return new Intl.DateTimeFormat('zh-CN', {
+                    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+                }).format(date)
+            }
+
+            onMounted(loadDashboard)
+
+            return {
+                loading,
+                errorMessage,
+                lastUpdated,
+                totalDevices,
+                onlineDevices,
+                realtimeAlarms,
+                pendingAlarms,
+                aiEvents,
+                recentAlarms,
+                deviceNodes,
+                areaCount,
+                cameraNodes,
+                cameraAreaCount,
+                selectedCameraCode,
+                selectedCamera,
+                deviceMediaCards,
+                mediaReadyCount,
+                systemStatus,
+                mediaUrl,
+                formatMediaTime,
+                alarmStatusClass,
+                loadDashboard
+            }
+        }
+    }).mount('#app')
+</script>
+</body>
+</html>

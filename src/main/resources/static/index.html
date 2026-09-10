@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能安防远程监控与告警平台</title>
+    <link rel="icon" href="assets/security-logo.png" type="image/png">
+    <link rel="stylesheet" href="css/app.css">
+    <script src="js/pending-alarm-notice.js" defer></script>
+</head>
+<body>
+<div class="app-shell">
+    <header class="app-header">
+        <a class="brand" href="index.html" aria-label="返回系统首页">
+            <img class="brand-logo" src="assets/security-logo.png" alt="智能安防平台 Logo">
+            <span class="brand-title">智能安防远程监控与告警平台</span>
+        </a>
+        <form class="header-actions" method="post" action="/logout">
+            <button class="header-logout" type="submit">退出登录</button>
+        </form>
+    </header>
+
+    <aside class="app-sidebar">
+        <p class="nav-caption">功能菜单</p>
+        <nav aria-label="系统功能">
+            <ul class="nav-list">
+                <li>
+                    <a class="nav-link" href="monitor.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 8h4v4H7zM14 8h3M14 12h3"/></svg>
+                        <span class="nav-label">监控大屏</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="device.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2M7 9h6"/></svg>
+                        <span class="nav-label">设备信息</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="ai.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>
+                        <span class="nav-label">AI识别记录</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="alarm.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                        <span class="nav-label">实时告警中心</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="alarm-history.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg>
+                        <span class="nav-label">告警处理记录</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="app-content">
+        <div class="page-container">
+            <div class="page-heading">
+                <div>
+                    <h1 class="page-title">系统首页</h1>
+                    <p class="page-description">请选择功能进入对应管理页面</p>
+                </div>
+            </div>
+
+            <section class="surface live-alarm-panel" aria-labelledby="live-alarm-title">
+                <div class="live-alarm-heading">
+                    <div>
+                        <p class="live-alarm-label">WEBSOCKET 实时通道</p>
+                        <h2 id="live-alarm-title">实时告警推送</h2>
+                    </div>
+                    <span id="socket-status" class="socket-status connecting">正在连接</span>
+                </div>
+                <div class="live-alarm-content" aria-live="polite">
+                    <span class="live-alarm-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                    </span>
+                    <div>
+                        <span>最新告警类型</span>
+                        <strong id="latest-alarm-type">等待告警事件</strong>
+                        <time id="latest-alarm-time"></time>
+                    </div>
+                </div>
+            </section>
+
+            <section class="surface welcome-panel">
+                <h2 class="welcome-title">智能安防远程监控与告警平台</h2>
+                <p class="welcome-copy">统一查看监控、设备与 AI 识别记录。</p>
+
+                <div class="module-list">
+                    <a class="module-link" href="monitor.html">
+                        <span class="module-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 8h4v4H7zM14 8h3M14 12h3"/></svg></span>
+                        <span><span class="module-name">监控大屏</span><span class="module-description">进入监控画面区域</span></span>
+                        <svg class="module-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </a>
+                    <a class="module-link" href="device.html">
+                        <span class="module-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2M7 9h6"/></svg></span>
+                        <span><span class="module-name">设备信息</span><span class="module-description">查看安防设备列表</span></span>
+                        <svg class="module-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </a>
+                    <a class="module-link" href="ai.html">
+                        <span class="module-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/></svg></span>
+                        <span><span class="module-name">AI识别记录</span><span class="module-description">查看智能识别记录</span></span>
+                        <svg class="module-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </a>
+                    <a class="module-link" href="alarm.html">
+                        <span class="module-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span>
+                        <span><span class="module-name">实时告警中心</span><span class="module-description">集中查看当前告警状态</span></span>
+                        <svg class="module-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </a>
+                    <a class="module-link" href="alarm-history.html">
+                        <span class="module-symbol"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg></span>
+                        <span><span class="module-name">告警处理记录</span><span class="module-description">查看处置中及已关闭记录</span></span>
+                        <svg class="module-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+                    </a>
+                </div>
+            </section>
+        </div>
+    </main>
+</div>
+<script>
+    (() => {
+        const statusElement = document.getElementById('socket-status')
+        const typeElement = document.getElementById('latest-alarm-type')
+        const timeElement = document.getElementById('latest-alarm-time')
+        let socket = null
+        let reconnectTimer = null
+        let stopped = false
+
+        function updateStatus(text, state) {
+            statusElement.textContent = text
+            statusElement.className = `socket-status ${state}`
+        }
+
+        function connect() {
+            if (stopped) return
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+            socket = new WebSocket(`${protocol}//${window.location.host}/ws/alarm-types`)
+            updateStatus('正在连接', 'connecting')
+
+            socket.addEventListener('open', () => updateStatus('实时通道已连接', 'online'))
+            socket.addEventListener('message', event => {
+                const type = String(event.data ?? '').trim()
+                if (!type) return
+                typeElement.textContent = type
+                timeElement.textContent = new Intl.DateTimeFormat('zh-CN', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                }).format(new Date())
+            })
+            socket.addEventListener('close', () => {
+                if (stopped) return
+                updateStatus('连接已断开，正在重连', 'offline')
+                clearTimeout(reconnectTimer)
+                reconnectTimer = setTimeout(connect, 3000)
+            })
+            socket.addEventListener('error', () => socket?.close())
+        }
+
+        window.addEventListener('beforeunload', () => {
+            stopped = true
+            clearTimeout(reconnectTimer)
+            socket?.close()
+        })
+        connect()
+    })()
+</script>
+</body>
+</html>

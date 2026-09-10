@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI视觉分析 - 智能安防远程监控与告警平台</title>
+    <link rel="icon" href="assets/security-logo.png" type="image/png">
+    <script src="js/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app" class="app-shell">
+    <header class="app-header">
+        <a class="brand" href="index.html" aria-label="返回系统首页">
+            <img class="brand-logo" src="assets/security-logo.png" alt="智能安防平台 Logo">
+            <span class="brand-title">智能安防远程监控与告警平台</span>
+        </a>
+    </header>
+
+    <aside class="app-sidebar">
+        <p class="nav-caption">功能菜单</p>
+        <nav aria-label="系统功能">
+            <ul class="nav-list">
+                <li>
+                    <a class="nav-link" href="monitor.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 8h4v4H7zM14 8h3M14 12h3"/></svg>
+                        <span class="nav-label">监控大屏</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="device.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2M7 9h6"/></svg>
+                        <span class="nav-label">设备信息</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link active" href="ai.html" aria-current="page">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>
+                        <span class="nav-label">AI视觉分析</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="alarm.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                        <span class="nav-label">实时告警中心</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="alarm-history.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg>
+                        <span class="nav-label">告警处理记录</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="app-content">
+        <div class="page-container ai-page">
+            <div class="ai-page-heading">
+                <div>
+                    <h1 class="page-title">AI视觉分析</h1>
+                    <p class="page-description">图片/视频识别 · 标注预警 · 闭环处置</p>
+                </div>
+                <div class="ai-channel-status" :class="{ offline: modelStatus === 'offline' }">
+                    <span class="channel-dot"></span>
+                    {{ modelStatusText }}
+                </div>
+            </div>
+
+            <section class="ai-workbench" aria-label="AI图片与视频分析工作台">
+                <article class="ai-panel analysis-viewer-panel">
+                    <div class="ai-panel-header">
+                        <div>
+                            <h2>监控画面分析</h2>
+                            <p>COCO + D-Fire 双模型同步识别图片与视频</p>
+                        </div>
+                        <span class="model-mark">YOLOv5</span>
+                    </div>
+                    <button
+                        type="button"
+                        class="analysis-canvas"
+                        :class="{ 'has-image': previewUrl }"
+                        @click="chooseFile"
+                        aria-label="选择需要分析的图片或监控视频"
+                    >
+                        <img v-if="previewUrl && previewKind === 'image'" :src="previewUrl" alt="待分析画面或已标注预警图片">
+                        <video v-else-if="previewUrl && previewKind === 'video'" :src="previewUrl" autoplay muted loop playsinline aria-label="待分析监控视频"></video>
+                        <span v-else class="upload-placeholder">
+                            <span class="upload-icon">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 14v5h14v-5"/></svg>
+                            </span>
+                            <strong>上传图片或监控视频</strong>
+                            <small>图片不超过 20MB，视频不超过 200MB</small>
+                        </span>
+                        <span v-if="analyzing" class="analysis-loading">
+                            <span class="analysis-spinner"></span>
+                            <strong>{{ mediaKind === 'video' ? '监控视频抽帧分析中' : '双模型分析中' }}</strong>
+                            <small>正在识别人员、车辆、物品、动物与烟火</small>
+                        </span>
+                    </button>
+                    <input ref="fileInput" class="visually-hidden" type="file" accept=".jpg,.jpeg,.png,.mp4,.avi,.mov,.mkv,.webm,image/jpeg,image/png,video/*" @change="handleFile">
+                </article>
+
+                <article class="ai-panel analysis-control-panel">
+                    <div class="control-stack">
+                        <button class="primary-button analyze-button" type="button" @click="analyze" :disabled="!selectedFile || !selectedDeviceCode || analyzing || modelStatus === 'offline'">
+                            {{ analyzing ? '正在分析…' : '开始 AI 分析' }}
+                        </button>
+                        <button class="file-select-button" type="button" @click="chooseFile">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4z"/></svg>
+                            {{ selectedFile ? selectedFile.name : '选择图片或视频' }}
+                        </button>
+                        <label class="area-field device-location-field">
+                            <span>拍摄设备 / 地点</span>
+                            <select v-model="selectedDeviceCode" @change="syncAreaFromDevice">
+                                <option value="">请选择本次媒体对应的设备</option>
+                                <option v-for="item in cameraDevices" :key="item.id" :value="item.code">
+                                    {{ item.area }} · {{ item.name }}（{{ item.code }}）
+                                </option>
+                            </select>
+                            <small v-if="selectedDevice">识别区域：{{ selectedDevice.area }}</small>
+                            <small v-else>选择文件后会按“序号_地点_事件”文件名自动匹配，也可手动选择</small>
+                        </label>
+                    </div>
+
+                    <div class="analysis-result">
+                        <div class="result-heading">
+                            <span>识别对象</span>
+                            <strong>{{ objects.length }}</strong>
+                        </div>
+                        <div v-if="objects.length" class="result-list">
+                            <div v-for="(item, index) in objects" :key="item.class + index" class="result-row">
+                                <span>
+                                    <strong>{{ item.class }}</strong>
+                                    <small>{{ item.model }}</small>
+                                </span>
+                                <b>{{ confidenceText(item.conf) }}</b>
+                            </div>
+                        </div>
+                        <p v-else class="result-empty">完成分析后在此显示识别结果</p>
+                    </div>
+
+                    <div v-if="lastAlarmCount > 0" class="warning-evidence" role="status">
+                        <strong>已生成预警</strong>
+                        <span>区域：{{ resultArea || area || '未知区域' }}</span>
+                        <small>左侧画面为带识别框的标准预警图片</small>
+                    </div>
+
+                    <p v-if="analysisMessage" class="analysis-message" :class="{ warning: analysisWarning }">{{ analysisMessage }}</p>
+                    <p class="rule-note">规则优先级：烟火 → 多人聚集 → 单人闯入 → 车辆 → 动物 → 物品。命中规则后自动生成告警。</p>
+                </article>
+
+                <article class="ai-panel recent-alarm-panel">
+                    <div class="ai-panel-header recent-header">
+                        <div>
+                            <h2>最新告警</h2>
+                            <p>识别结果与处置状态实时同步</p>
+                        </div>
+                        <button class="icon-refresh-button" type="button" @click="loadAlarms" :disabled="alarmsLoading" aria-label="刷新告警">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 8a7 7 0 0 1 11.3-2.1L20 8M4 16l2.6 2.1A7 7 0 0 0 17.9 16"/></svg>
+                        </button>
+                    </div>
+                    <div class="recent-alarm-list">
+                        <div v-if="alarmsLoading" class="compact-empty">正在加载告警…</div>
+                        <div v-else-if="recentAlarms.length === 0" class="compact-empty">暂无告警记录</div>
+                        <article v-for="item in recentAlarms" :key="item.id" class="recent-alarm-item">
+                            <div class="recent-alarm-topline">
+                                <strong>{{ item.type || '未分类告警' }}</strong>
+                                <span :class="['status-badge', statusClass(item.status)]">{{ item.status }}</span>
+                            </div>
+                            <p>{{ item.area || '未知区域' }} · {{ formatTime(item.eventTime) }}</p>
+                            <small :title="item.detail">{{ displayDetail(item.detail) }}</small>
+                            <a v-if="item.originalPath" class="alarm-media-link" :href="mediaUrl(item.originalPath)" target="_blank" rel="noopener">查看原图</a>
+                            <div v-if="item.status !== '已关闭'" class="alarm-actions">
+                                <button v-if="item.status === '待处置'" class="action-button" type="button" @click="updateAlarm(item, '处置中')" :disabled="updatingId === item.id">开始处置</button>
+                                <button class="action-button action-close" type="button" @click="updateAlarm(item, '已关闭')" :disabled="updatingId === item.id">关闭</button>
+                            </div>
+                        </article>
+                    </div>
+                </article>
+            </section>
+
+            <section class="ai-panel ai-data-panel" aria-label="告警与设备数据">
+                <div class="data-tabs" role="tablist">
+                    <button type="button" :class="{ active: activeTab === 'alarms' }" @click="activeTab = 'alarms'">告警记录</button>
+                    <button type="button" :class="{ active: activeTab === 'devices' }" @click="activeTab = 'devices'">设备状态</button>
+                </div>
+                <div class="table-wrap ai-table-wrap">
+                    <table v-if="activeTab === 'alarms'" class="data-table ai-record-table">
+                        <thead><tr><th>ID</th><th>告警类型</th><th>区域</th><th>级别</th><th>状态</th><th>识别时间</th><th>原图</th><th>操作</th></tr></thead>
+                        <tbody>
+                        <tr v-if="sortedAlarms.length === 0"><td colspan="8" class="inline-empty">暂无告警记录</td></tr>
+                        <tr v-for="item in sortedAlarms" :key="item.id">
+                            <td>{{ item.id }}</td>
+                            <td class="alarm-type-cell">{{ item.type }}</td>
+                            <td>{{ item.area }}</td>
+                            <td><span :class="['status-badge', levelClass(item.level)]">{{ item.level }}</span></td>
+                            <td><span :class="['status-badge', statusClass(item.status)]">{{ item.status }}</span></td>
+                            <td>{{ formatTime(item.eventTime) }}</td>
+                            <td><a v-if="item.originalPath" class="alarm-media-link" :href="mediaUrl(item.originalPath)" target="_blank" rel="noopener">查看原图</a><span v-else>-</span></td>
+                            <td>
+                                <div v-if="item.status !== '已关闭'" class="table-actions">
+                                    <button v-if="item.status === '待处置'" type="button" @click="updateAlarm(item, '处置中')" :disabled="updatingId === item.id">开始处置</button>
+                                    <button type="button" class="close-link" @click="updateAlarm(item, '已关闭')" :disabled="updatingId === item.id">关闭</button>
+                                </div>
+                                <span v-else class="action-complete">处置完成</span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <table v-else class="data-table ai-device-table">
+                        <thead><tr><th>ID</th><th>设备编码</th><th>设备名称</th><th>设备类型</th><th>所属区域</th><th>在线状态</th></tr></thead>
+                        <tbody>
+                        <tr v-if="devices.length === 0"><td colspan="6" class="inline-empty">暂无设备数据</td></tr>
+                        <tr v-for="item in devices" :key="item.id">
+                            <td>{{ item.id }}</td><td>{{ item.code }}</td><td>{{ item.name }}</td><td>{{ item.type }}</td><td>{{ item.area }}</td>
+                            <td><span :class="['status-badge', item.status === '在线' ? 'status-online' : 'status-offline']">{{ item.status }}</span></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+        <div v-if="toast" class="toast-message" role="status">{{ toast }}</div>
+    </main>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted, onBeforeUnmount } = Vue
+
+    createApp({
+        setup() {
+            const fileInput = ref(null)
+            const selectedFile = ref(null)
+            const previewUrl = ref('')
+            const previewKind = ref('image')
+            const mediaKind = ref('image')
+            const objects = ref([])
+            const area = ref('')
+            const selectedDeviceCode = ref('')
+            const resultArea = ref('')
+            const lastAlarmCount = ref(0)
+            const analyzing = ref(false)
+            const analysisMessage = ref('')
+            const analysisWarning = ref(false)
+            const modelStatus = ref('checking')
+            const alarms = ref([])
+            const devices = ref([])
+            const alarmsLoading = ref(false)
+            const updatingId = ref(null)
+            const activeTab = ref('alarms')
+            const toast = ref('')
+            let toastTimer = null
+
+            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+            const modelBase = isLocal ? 'http://127.0.0.1:8000' : '/ai-model'
+            const sortedAlarms = computed(() => [...alarms.value].sort((a, b) => new Date(b.eventTime || 0) - new Date(a.eventTime || 0)))
+            const recentAlarms = computed(() => sortedAlarms.value.slice(0, 5))
+            const cameraDevices = computed(() => devices.value
+                .filter(item => item.type === '摄像头')
+                .sort((a, b) => String(a.area || '').localeCompare(String(b.area || ''), 'zh-CN')))
+            const selectedDevice = computed(() => devices.value.find(item => item.code === selectedDeviceCode.value) || null)
+            const modelStatusText = computed(() => {
+                if (modelStatus.value === 'online') return 'AI 实时通道已连接'
+                if (modelStatus.value === 'offline') return 'AI 模型服务未连接'
+                return '正在连接 AI 模型'
+            })
+
+            function showToast(message) {
+                toast.value = message
+                clearTimeout(toastTimer)
+                toastTimer = setTimeout(() => { toast.value = '' }, 2600)
+            }
+
+            function chooseFile() {
+                if (!analyzing.value) fileInput.value?.click()
+            }
+
+            function handleFile(event) {
+                const file = event.target.files?.[0]
+                if (!file) return
+                const suffix = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] || ''
+                const imageSuffixes = ['.jpg', '.jpeg', '.png']
+                const videoSuffixes = ['.mp4', '.avi', '.mov', '.mkv', '.webm']
+                const nextMediaKind = imageSuffixes.includes(suffix) ? 'image' : videoSuffixes.includes(suffix) ? 'video' : ''
+                if (!nextMediaKind) {
+                    showToast('请选择 JPG、PNG、MP4、AVI、MOV、MKV 或 WEBM 文件')
+                    return
+                }
+                const sizeLimit = nextMediaKind === 'video' ? 200 : 20
+                if (file.size > sizeLimit * 1024 * 1024) {
+                    showToast(`${nextMediaKind === 'video' ? '视频' : '图片'}大小不能超过 ${sizeLimit}MB`)
+                    return
+                }
+                if (previewUrl.value.startsWith('blob:')) URL.revokeObjectURL(previewUrl.value)
+                selectedFile.value = file
+                previewUrl.value = URL.createObjectURL(file)
+                previewKind.value = nextMediaKind
+                mediaKind.value = nextMediaKind
+                objects.value = []
+                analysisMessage.value = ''
+                resultArea.value = ''
+                lastAlarmCount.value = 0
+                const parts = file.name.replace(/\.[^.]+$/, '').split('_')
+                if (parts.length >= 2) {
+                    area.value = parts[1]
+                    matchDeviceByArea(area.value)
+                }
+            }
+
+            function matchDeviceByArea(areaName) {
+                if (!areaName) return
+                const matched = devices.value.find(item => item.area === areaName && item.type === '摄像头')
+                if (matched) selectedDeviceCode.value = matched.code
+            }
+
+            function syncAreaFromDevice() {
+                area.value = selectedDevice.value?.area || ''
+            }
+
+            async function checkModel() {
+                try {
+                    const response = await fetch(modelBase + '/', { headers: { Accept: 'application/json' } })
+                    if (!response.ok) throw new Error('模型服务异常')
+                    const data = await response.json()
+                    modelStatus.value = data.status === 'ok' ? 'online' : 'checking'
+                } catch (error) {
+                    modelStatus.value = 'offline'
+                    console.error('模型服务连接失败：', error)
+                }
+            }
+
+            async function analyze() {
+                if (!selectedFile.value || analyzing.value) return
+                if (!selectedDeviceCode.value) {
+                    showToast('请先选择本次图片或视频对应的拍摄设备与地点')
+                    return
+                }
+                analyzing.value = true
+                analysisMessage.value = ''
+                analysisWarning.value = false
+                const form = new FormData()
+                form.append('file', selectedFile.value)
+                form.append('submit', 'true')
+                if (area.value) form.append('area', area.value)
+                form.append('device_code', selectedDeviceCode.value)
+                try {
+                    const endpoint = mediaKind.value === 'video' ? '/analyze-video' : '/analyze'
+                    const response = await fetch(modelBase + endpoint, { method: 'POST', body: form })
+                    const data = await response.json()
+                    if (!response.ok) throw new Error(data.detail || 'AI分析失败')
+                    objects.value = Array.isArray(data.objects) ? data.objects : []
+                    previewUrl.value = modelBase + '/' + data.resultPath + '?t=' + Date.now()
+                    previewKind.value = 'image'
+                    resultArea.value = data.area || area.value || '未知区域'
+                    if (data.deviceCode) selectedDeviceCode.value = data.deviceCode
+                    lastAlarmCount.value = Number(data.alarmCount || 0)
+                    analysisWarning.value = Boolean(data.backendError)
+                    if (data.backendError) {
+                        analysisMessage.value = '识别已完成，但告警入库失败，请检查后端连接'
+                    } else if (data.alarmCount > 0) {
+                        const videoInfo = data.mediaType === 'video' ? `，已抽检 ${data.sampledFrames || 0} 帧` : ''
+                        analysisMessage.value = `分析完成${videoInfo}，已生成 ${data.alarmCount} 条告警`
+                    } else {
+                        analysisMessage.value = '分析完成，未发现需要告警的目标'
+                    }
+                    await loadAlarms()
+                } catch (error) {
+                    analysisWarning.value = true
+                    analysisMessage.value = error.message || 'AI分析失败，请检查模型服务'
+                } finally {
+                    analyzing.value = false
+                }
+            }
+
+            async function loadLastAnalysis() {
+                try {
+                    const response = await fetch(modelBase + '/last-result', { headers: { Accept: 'application/json' } })
+                    if (!response.ok) return
+                    const data = await response.json()
+                    objects.value = Array.isArray(data.objects) ? data.objects : []
+                    if (data.resultPath) {
+                        previewUrl.value = modelBase + '/' + data.resultPath
+                        previewKind.value = 'image'
+                    }
+                    resultArea.value = data.area || ''
+                    if (data.deviceCode) selectedDeviceCode.value = data.deviceCode
+                    lastAlarmCount.value = Number(data.alarmCount || 0)
+                    analysisMessage.value = data.backendError ? '最近一次识别完成，但告警入库失败' : '已载入服务器最近一次分析结果'
+                    analysisWarning.value = Boolean(data.backendError)
+                } catch (error) {
+                    console.error('最近分析结果加载失败：', error)
+                }
+            }
+
+            async function loadAlarms() {
+                alarmsLoading.value = true
+                try {
+                    const response = await fetch('/alarm/list', { headers: { Accept: 'application/json' } })
+                    if (!response.ok) throw new Error('告警加载失败')
+                    const data = await response.json()
+                    alarms.value = Array.isArray(data) ? data : []
+                } catch (error) {
+                    showToast('告警数据加载失败')
+                    console.error(error)
+                } finally {
+                    alarmsLoading.value = false
+                }
+            }
+
+            async function loadDevices() {
+                try {
+                    const response = await fetch('/device/list', { headers: { Accept: 'application/json' } })
+                    if (!response.ok) throw new Error('设备加载失败')
+                    const data = await response.json()
+                    devices.value = Array.isArray(data) ? data : []
+                    if (selectedDeviceCode.value && selectedDevice.value) {
+                        syncAreaFromDevice()
+                    } else {
+                        matchDeviceByArea(area.value || resultArea.value)
+                    }
+                } catch (error) {
+                    showToast('设备数据加载失败')
+                    console.error(error)
+                }
+            }
+
+            async function updateAlarm(item, status) {
+                updatingId.value = item.id
+                try {
+                    const response = await fetch(`/alarm/${item.id}/status`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify({ status })
+                    })
+                    if (!response.ok) throw new Error('状态更新失败')
+                    const updated = await response.json()
+                    const index = alarms.value.findIndex(alarm => alarm.id === item.id)
+                    if (index >= 0) alarms.value[index] = updated
+                    alarms.value = [...alarms.value]
+                    showToast(status === '处置中' ? '已开始处置该告警' : '告警已关闭')
+                } catch (error) {
+                    showToast('操作失败，请刷新后重试')
+                } finally {
+                    updatingId.value = null
+                }
+            }
+
+            function confidenceText(value) {
+                return Number.isFinite(Number(value)) ? Math.round(Number(value) * 100) + '%' : '-'
+            }
+
+            function formatTime(value) {
+                if (!value) return '-'
+                const date = new Date(value)
+                if (Number.isNaN(date.getTime())) return value
+                return new Intl.DateTimeFormat('zh-CN', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                }).format(date)
+            }
+
+            function displayDetail(value) {
+                return (value || '暂无识别详情').replace('双模型识别：', 'AI识别结果：')
+            }
+
+            function mediaUrl(path) {
+                if (!path) return '#'
+                if (/^https?:\/\//i.test(path)) return path
+                return modelBase + '/' + String(path).replace(/^\/+/, '')
+            }
+
+            function levelClass(level) {
+                if (level === '高') return 'level-high'
+                if (level === '中') return 'level-medium'
+                return 'level-low'
+            }
+
+            function statusClass(status) {
+                if (status === '待处置') return 'status-pending'
+                if (status === '处置中') return 'status-processing'
+                if (status === '已关闭') return 'status-closed'
+                return 'status-neutral'
+            }
+
+            onMounted(() => Promise.all([checkModel(), loadLastAnalysis(), loadAlarms(), loadDevices()]))
+            onBeforeUnmount(() => {
+                clearTimeout(toastTimer)
+                if (previewUrl.value.startsWith('blob:')) URL.revokeObjectURL(previewUrl.value)
+            })
+
+            return {
+                fileInput, selectedFile, previewUrl, previewKind, mediaKind, objects, area, resultArea,
+                selectedDeviceCode, selectedDevice, cameraDevices,
+                lastAlarmCount, analyzing, analysisMessage,
+                analysisWarning, modelStatus, modelStatusText, alarmsLoading, updatingId,
+                activeTab, toast, sortedAlarms, recentAlarms, devices,
+                chooseFile, handleFile, syncAreaFromDevice, analyze, loadAlarms, updateAlarm, confidenceText,
+                formatTime, displayDetail, mediaUrl, levelClass, statusClass
+            }
+        }
+    }).mount('#app')
+</script>
+</body>
+</html>

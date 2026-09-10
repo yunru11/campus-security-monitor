@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 智能安防远程监控与告警平台</title>
+    <link rel="icon" href="assets/security-logo.png" type="image/png">
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="login-page">
+<main class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+        <img class="login-logo" src="assets/security-logo.png" alt="智能安防平台 Logo">
+        <p class="login-eyebrow">SECURITY MONITOR</p>
+        <h1 id="login-title">登录监控平台</h1>
+        <p class="login-description">请输入后台管理员账号继续访问。</p>
+
+        <p id="login-message" class="login-message" hidden></p>
+        <form method="post" action="/login" class="login-form">
+            <label>
+                <span>用户名</span>
+                <input name="username" type="text" autocomplete="username" required autofocus>
+            </label>
+            <label>
+                <span>密码</span>
+                <input name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button class="primary-button login-submit" type="submit">登录</button>
+        </form>
+    </section>
+</main>
+<script>
+    const params = new URLSearchParams(window.location.search)
+    const message = document.getElementById('login-message')
+    if (params.has('error')) {
+        message.textContent = '用户名或密码错误'
+        message.hidden = false
+    } else if (params.has('logout')) {
+        message.textContent = '已安全退出登录'
+        message.classList.add('success')
+        message.hidden = false
+    }
+</script>
+</body>
+</html>

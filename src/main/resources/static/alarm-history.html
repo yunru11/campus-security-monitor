@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>告警处理记录 - 智能安防远程监控与告警平台</title>
+    <link rel="icon" href="assets/security-logo.png" type="image/png">
+    <script src="js/vue.global.prod.js"></script>
+    <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app" class="app-shell">
+    <header class="app-header">
+        <a class="brand" href="index.html" aria-label="返回系统首页">
+            <img class="brand-logo" src="assets/security-logo.png" alt="智能安防平台 Logo">
+            <span class="brand-title">智能安防远程监控与告警平台</span>
+        </a>
+    </header>
+
+    <aside class="app-sidebar">
+        <p class="nav-caption">功能菜单</p>
+        <nav aria-label="系统功能">
+            <ul class="nav-list">
+                <li>
+                    <a class="nav-link" href="monitor.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M7 8h4v4H7zM14 8h3M14 12h3"/></svg>
+                        <span class="nav-label">监控大屏</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="device.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2M7 9h6"/></svg>
+                        <span class="nav-label">设备信息</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="ai.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>
+                        <span class="nav-label">AI识别记录</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link" href="alarm.html">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                        <span class="nav-label">实时告警中心</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="nav-link active" href="alarm-history.html" aria-current="page">
+                        <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg>
+                        <span class="nav-label">告警处理记录</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="app-content">
+        <div class="page-container alarm-page">
+            <div class="page-heading">
+                <div>
+                    <h1 class="page-title">告警处理记录</h1>
+                    <p class="page-description">查看正在处置和已经关闭的告警记录</p>
+                </div>
+                <button class="primary-button" type="button" @click="loadAlarms" :disabled="loading">
+                    {{ loading ? '加载中…' : '刷新' }}
+                </button>
+            </div>
+
+            <section class="alarm-summary-grid history-summary-grid" aria-label="处理记录统计">
+                <article class="alarm-summary-card summary-all">
+                    <p>处理记录</p>
+                    <strong>{{ processedList.length }}</strong>
+                </article>
+                <article class="alarm-summary-card summary-processing">
+                    <p>处置中</p>
+                    <strong>{{ processingCount }}</strong>
+                </article>
+                <article class="alarm-summary-card summary-closed">
+                    <p>已关闭</p>
+                    <strong>{{ closedCount }}</strong>
+                </article>
+            </section>
+
+            <section class="surface" aria-label="告警处理记录列表">
+                <div class="surface-header alarm-list-header">
+                    <div>
+                        <h2 class="surface-title">处理记录</h2>
+                        <p class="surface-subtitle">共 {{ filteredList.length }} 条</p>
+                    </div>
+                    <div class="filter-tabs" aria-label="处理状态筛选">
+                        <button
+                            v-for="option in filterOptions"
+                            :key="option"
+                            type="button"
+                            :class="['filter-button', { active: activeStatus === option }]"
+                            @click="activeStatus = option"
+                        >{{ option }}</button>
+                    </div>
+                </div>
+                <div class="table-wrap alarm-table-wrap">
+                    <table class="data-table alarm-history-table">
+                        <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>告警类型</th>
+                            <th>区域</th>
+                            <th>级别</th>
+                            <th>来源</th>
+                            <th>处理状态</th>
+                            <th>告警详情</th>
+                            <th>原图</th>
+                            <th>记录时间</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr v-if="loading" class="empty-row">
+                            <td colspan="9">
+                                <div class="empty-state">
+                                    <span class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg></span>
+                                    <p>正在加载处理记录…</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-else-if="errorMessage" class="empty-row">
+                            <td colspan="9">
+                                <div class="empty-state error-state">
+                                    <span class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg></span>
+                                    <p>{{ errorMessage }}</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-else-if="filteredList.length === 0" class="empty-row">
+                            <td colspan="9">
+                                <div class="empty-state">
+                                    <span class="empty-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 2"/></svg></span>
+                                    <p>当前筛选条件下暂无处理记录</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr v-else v-for="(item, index) in filteredList" :key="item.id || index">
+                            <td>{{ index + 1 }}</td>
+                            <td class="alarm-type-cell">{{ item.type || '-' }}</td>
+                            <td>{{ item.area || '-' }}</td>
+                            <td><span :class="['status-badge', levelClass(item.level)]">{{ item.level || '-' }}</span></td>
+                            <td>{{ item.source || '-' }}</td>
+                            <td><span :class="['status-badge', statusClass(item.status)]">{{ item.status || '-' }}</span></td>
+                            <td class="alarm-detail-cell" :title="item.detail || '-'">{{ item.detail || '-' }}</td>
+                            <td><a v-if="item.originalPath" class="alarm-media-link" :href="mediaUrl(item.originalPath)" target="_blank" rel="noopener">查看原图</a><span v-else>-</span></td>
+                            <td>{{ formatTime(item.eventTime) }}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </main>
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted } = Vue
+
+    createApp({
+        setup() {
+            const list = ref([])
+            const loading = ref(false)
+            const errorMessage = ref('')
+            const activeStatus = ref('全部记录')
+            const filterOptions = ['全部记录', '处置中', '已关闭']
+            const modelBase = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+                ? 'http://127.0.0.1:8000'
+                : '/ai-model'
+
+            const processedList = computed(() => [...list.value]
+                .filter(item => item.status === '处置中' || item.status === '已关闭')
+                .sort((a, b) => new Date(b.eventTime || 0).getTime() - new Date(a.eventTime || 0).getTime()))
+            const filteredList = computed(() => activeStatus.value === '全部记录'
+                ? processedList.value
+                : processedList.value.filter(item => item.status === activeStatus.value))
+            const processingCount = computed(() => processedList.value.filter(item => item.status === '处置中').length)
+            const closedCount = computed(() => processedList.value.filter(item => item.status === '已关闭').length)
+
+            async function loadAlarms() {
+                loading.value = true
+                errorMessage.value = ''
+                try {
+                    const response = await fetch('/alarm/list', { headers: { Accept: 'application/json' } })
+                    if (!response.ok) throw new Error(`告警接口返回 ${response.status}`)
+                    const data = await response.json()
+                    list.value = Array.isArray(data) ? data : []
+                } catch (error) {
+                    list.value = []
+                    errorMessage.value = '处理记录加载失败，请检查后台服务和数据库连接'
+                    console.error('加载告警处理记录失败：', error)
+                } finally {
+                    loading.value = false
+                }
+            }
+
+            function formatTime(value) {
+                if (!value) return '-'
+                const date = new Date(value)
+                if (Number.isNaN(date.getTime())) return value
+                return new Intl.DateTimeFormat('zh-CN', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                }).format(date)
+            }
+
+            function levelClass(level) {
+                if (level === '高') return 'level-high'
+                if (level === '中') return 'level-medium'
+                return 'level-low'
+            }
+
+            function statusClass(status) {
+                if (status === '处置中') return 'status-processing'
+                if (status === '已关闭') return 'status-closed'
+                return 'status-neutral'
+            }
+
+            function mediaUrl(path) {
+                if (!path) return '#'
+                if (/^https?:\/\//i.test(path)) return path
+                return modelBase + '/' + String(path).replace(/^\/+/, '')
+            }
+
+            onMounted(loadAlarms)
+
+            return {
+                loading, errorMessage, activeStatus, filterOptions, processedList, filteredList,
+                processingCount, closedCount, loadAlarms, formatTime, levelClass, statusClass, mediaUrl
+            }
+        }
+    }).mount('#app')
+</script>
+</body>
+</html>
